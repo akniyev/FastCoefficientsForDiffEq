@@ -8,32 +8,53 @@ namespace FastCoefficientsForDiffEq
 {
     class Program
     {
-        private static double[] _ettas;
         
         private static double[] EttasWithInitialValues(IReadOnlyList<double> p, double y0)
         {
             return Ettas(p).Select(x => x + y0).ToArray();
         }
         
-        static double Ck(int N, int k, double h, Func<double, double> f, double[] etta)
+        // You should calculate ettas and hsin before calling this method
+        static double[] Cks(double[] f)
         {
+            var N = f.Length;
+
+            var f1 = f.Append(0).Concat(f.Skip(1).Reverse()).ToArray();
+
+            var f1_complex = Enumerable.Range(0, N).Select(i => new Complex(f1[2 * i], f1[2 * i + 1])).ToArray();
+           
+            var a1 = InvFftForRealInput(f1_complex)
+                .Select(x => (x.Real + f1[0]) / 2.0)
+                .Select(x => Sqrt(2) * PI / N).ToArray();
             
-            return 0;
+            return a1;
         }
         
         static void Main(string[] args)
         {
             var N = 16;
             var p = new double[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-            var y0 = 0;
+            var y0 = 1;
+            var h = 0.1;
+            var f = new Func<double, double, double>((x, y) => x + y);
 
-            _ettas = EttasWithInitialValues(p, y0);
-
-            foreach (var e in _ettas)
-            {
-                Console.WriteLine(e);
-            }
+            var ettas = EttasWithInitialValues(p, y0);
             
+            var indexes = Enumerable.Range(0, N).ToArray();
+            
+            var tau = indexes.Select(x => 1.0 * x / N).ToArray();
+            
+            var hsin = indexes.Select(j => h * Sin(PI * tau[j])).ToArray();
+            
+            var dicrete_f = indexes.Select(j => f(hsin[j], ettas[j])).ToArray();
+
+            var cks = Cks(dicrete_f);
+
+            Console.WriteLine("Cks");
+            foreach (var ck in cks)
+            {
+                Console.WriteLine(ck);
+            }
         }
         
         private static Complex[] _expArray;
