@@ -55,6 +55,7 @@ namespace FastCoefficientsForDiffEq
             {
                 Console.WriteLine(ck);
             }
+            Console.ReadLine();
         }
         
         private static Complex[] _expArray;
