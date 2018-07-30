@@ -6,7 +6,7 @@ using static System.Math;
 
 namespace FastCoefficientsForDiffEq
 {
-    class Program
+    static class Program
     {
         private static Complex[] _expArray;
         private static readonly Complex ImagNum = new Complex(0, 2);
@@ -49,6 +49,7 @@ namespace FastCoefficientsForDiffEq
 
             return y;
         }
+        
         private static double[] Ettas(IReadOnlyList<double> a)
         {
             var n = a.Count;
@@ -79,6 +80,7 @@ namespace FastCoefficientsForDiffEq
 
             return c.Select(x => x.Real).ToArray();
         }
+        
         private static Complex[] InvFftForRealInput(Complex[] a)
         {
             var n = a.Length;
@@ -218,74 +220,57 @@ namespace FastCoefficientsForDiffEq
         //    //a1[0] /= Sqrt(2); 
         //    return a1;
         //}
-        static double[] Cks(double[] p, double h, double y0)
+
+        private static double[] _tau;
+        private static double[] _hsin;
+        private static double[] _cos;
+        private static int[] _indexes;
+        private static double sqrt2 = Sqrt(2);
+        
+        private static double[] Cks(IReadOnlyList<double> p, double h, double y0)
         {
-            //y0 = 1;
-            //h = 0.1;
-            var N = p.Length;
+            var N = p.Count;
             var ettas = EttasWithInitialValues(p, y0);
             var f = new Func<double, double, double>((x, y) => x + y);
-            var indexes = Enumerable.Range(0, N).ToArray();
-
-            var tau = indexes.Select(x => 1.0 * x / N).ToArray();
-
-            var hsin = indexes.Select(j => h * Sin(PI * tau[j])).ToArray();
-            var cos = indexes.Select(j => Cos(PI * tau[j])).ToArray();
-            var dicrete_f = indexes.Select(j => f(hsin[j], ettas[j]) * cos[j]).ToArray();
-
-            var f1 = dicrete_f.Append(0).Concat(dicrete_f.Skip(1).Reverse()).ToArray();
-
-            var f1_complex = Enumerable.Range(0, N).Select(i => new Complex(f1[2 * i], f1[2 * i + 1])).ToArray();
-
-            var a1 = FftForRealInput(f1_complex);
-            a1[0] = PI / N * a1[0] / 2;
-            for (int i = 1; i < a1.Length; i++)
+            
+            
+            if (_indexes == null || _indexes.Length != N)
             {
-                a1[i] = PI / N * (a1[i] + f1[0]) / Sqrt(2);
+                _indexes = Enumerable.Range(0, N).ToArray();
+
+                _tau = _indexes.Select(x => 1.0 * x / N).ToArray();
+
+                _hsin = _indexes.Select(j => h * Sin(PI * _tau[j])).ToArray();
+
+                _cos = _indexes.Select(j => Cos(PI * _tau[j])).ToArray();   
             }
-            //    .Select(x => (x + f[0]) / 2.0)
-            //    .Select(x => Sqrt(2) * PI / N).ToArray();
-            //a1[0] /= Sqrt(2);
-            var a2 = new double[N];
-            for (int i = 0; i < N; i++)
+            
+            var dicreteF = _indexes.Select(j => f(_hsin[j], ettas[j]) * _cos[j]).ToArray();
+
+            var f1 = dicreteF.Append(0).Concat(dicreteF.Skip(1).Reverse()).ToArray();
+
+            var f1Complex = _indexes.Select(i => new Complex(f1[2 * i], f1[2 * i + 1])).ToArray();
+
+            var a1 = FftForRealInput(f1Complex);
+            a1[0] *= PI / (2.0 * N);
+            for (var i = 1; i < a1.Length; i++)
             {
-                a2[i] = a1[i].Real;
+                a1[i] = PI * (a1[i] + f1[0]) / (sqrt2 * N);
             }
-            return a2;
+            return a1.Select(x => x.Real).ToArray();
         }
+        
         static double diff(double[] a, double[] b)
         {
-            var result = new double [a.Length];
-            
-            for (int i = 0; i < a.Length; i++)
-            {
-                result[i] = (a[i] - b[i]);
-            }
-            var s =0.0;
-            for (int i = 0; i < a.Length; i++)
-            {
-                s = s + Sqrt(result[i] * result[i]);
-            }
-            return s;
+            return Sqrt(a.Zip(b, (x, y) => (x - y) * (x - y)).Sum());
         }
+        
         static void Main(string[] args)
         {
-            //var N = 8;
-            var p = new double[] { 1, 2, 3, 4, 5, 6, 7, 8};
-            //var y0 = 1;
-            //var h = 0.1;
-            //var f = new Func<double, double, double>((x, y) => x + y);
-
-            //var ettas = EttasWithInitialValues(p, y0);
-
-            //var indexes = Enumerable.Range(0, N).ToArray();
-
-            //var tau = indexes.Select(x => 1.0 * x / N).ToArray();
-
-            //var hsin = indexes.Select(j => h * Sin(PI * tau[j])).ToArray();
-            //var cos = indexes.Select(j => Cos(PI * tau[j])).ToArray();
-            //var dicrete_f = indexes.Select(j => f(hsin[j], ettas[j])*cos[j]).ToArray();
-
+            var N = 8;
+            var r = new Random();
+            var p = Enumerable.Range(0, N).Select(x => r.NextDouble() * 100 - 50).ToArray();
+            
             var eps = 0.01;
             var cks = Cks(p, 0.1, 1);
             var k = new double[p.Length];
