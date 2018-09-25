@@ -10,6 +10,7 @@ namespace FastCoefficientsForDiffEq
     {
         private static Complex[] _expArray;
         private static readonly Complex ImagNum = new Complex(0, 2);
+        
         private static Complex[] InvFft(Complex[] array)
         {
             var n = array.Length;
@@ -102,7 +103,7 @@ namespace FastCoefficientsForDiffEq
             var a1 = InvFft(a);
 
             b[0] = new Complex(a1[0].Real, -a1[0].Imaginary);
-            for (int i = 1; i < n; i++)
+            for (var i = 1; i < n; i++)
             {
                 b[i] = new Complex(a1[n - i].Real, -a1[n - i].Imaginary);
             }
@@ -114,7 +115,7 @@ namespace FastCoefficientsForDiffEq
                 g1[i] = (a1[i] + b[i]) / 2;
                 g2[i] = -imag * (a1[i] - b[i]) / 2;
             }
-            for (int i = 0; i < n; i++)
+            for (var i = 0; i < n; i++)
             {
                 b1[i] = g1[i] + _expArray[i] * g2[i];
                 //b1[i] = g1[i] - _expArray[i] * g2[i];
@@ -227,18 +228,23 @@ namespace FastCoefficientsForDiffEq
         private static int[] _indexes;
         private static double sqrt2 = Sqrt(2);
         
+        private static double tau(int i, int N)
+        {
+            return 1.0 * i / N;
+        }
+        
         private static double[] Cks(IReadOnlyList<double> p, double h, double y0)
         {
             var N = p.Count;
             var ettas = EttasWithInitialValues(p, y0);
-            var f = new Func<double, double, double>((x, y) => x + y);
+            var f = new Func<double, double, double>((x, y) => Sin(x));
             
             
             if (_indexes == null || _indexes.Length != N)
             {
                 _indexes = Enumerable.Range(0, N).ToArray();
 
-                _tau = _indexes.Select(x => 1.0 * x / N).ToArray();
+                _tau = _indexes.Select(i => tau(i, N)).ToArray();
 
                 _hsin = _indexes.Select(j => h * Sin(PI * _tau[j])).ToArray();
 
@@ -259,36 +265,60 @@ namespace FastCoefficientsForDiffEq
             }
             return a1.Select(x => x.Real).ToArray();
         }
+
+        private static double[] CalculateSolutionFromCoefficients(IReadOnlyList<double> cks, int y0)
+        {
+            return Ettas(cks).Select(x => y0 + x).ToArray();
+        }
         
-        static double diff(double[] a, double[] b)
+        static double Diff(double[] a, double[] b)
         {
             return Sqrt(a.Zip(b, (x, y) => (x - y) * (x - y)).Sum());
         }
-        
-        static void Main(string[] args)
+
+        private static void Main(string[] args)
         {
             var N = 8;
             var r = new Random();
             var p = Enumerable.Range(0, N).Select(x => r.NextDouble() * 100 - 50).ToArray();
             
             var eps = 0.01;
-            var cks = Cks(p, 0.1, 1);
+            var y0 = 1;
+            var h = 0.1;
+            var cks = Cks(p, h, y0);
             var k = new double[p.Length];
             do
             {
                 k = cks;
                 cks = Cks(cks, 0.1, 1);
-                Console.WriteLine(diff(cks, k));
-            } while (diff(cks,k)>=eps);
+                Console.WriteLine(Diff(cks, k));
+            } while (Diff(cks,k)>=eps);
 
-            //Console.WriteLine(diff(cks, k));
+//            Console.WriteLine("Cks");
+//
+//            foreach (var ck in cks)
+//            {
+//                Console.WriteLine(ck);
+//            }
 
-            Console.WriteLine("Cks");
+            var ys = CalculateSolutionFromCoefficients(cks, y0);
+            
+            Console.WriteLine("Ys");
 
-            foreach (var ck in cks)
+            foreach (var y in ys)
             {
-                Console.WriteLine(ck);
+                Console.WriteLine(y);
             }
+            
+            Console.WriteLine("Real solution:");
+            var s = _tau.Select(x => -Cos(PI * x) + 2).ToArray();
+            
+            foreach (var y in s)
+            {
+                Console.WriteLine(y);
+            }
+            
+            
             Console.ReadLine();
         }
         
