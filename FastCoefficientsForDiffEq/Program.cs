@@ -237,7 +237,7 @@ namespace FastCoefficientsForDiffEq
         {
             var N = p.Count;
             var ettas = EttasWithInitialValues(p, y0);
-            var f = new Func<double, double, double>((x, y) => Sin(x));
+            var f = new Func<double, double, double>((x, y) => x*y);
             
             
             if (_indexes == null || _indexes.Length != N)
@@ -258,10 +258,11 @@ namespace FastCoefficientsForDiffEq
             var f1Complex = _indexes.Select(i => new Complex(f1[2 * i], f1[2 * i + 1])).ToArray();
 
             var a1 = FftForRealInput(f1Complex);
-            a1[0] *= PI / (2.0 * N);
+            a1[0] =h* PI * (a1[0] + f1[0]) / (2.0 * N);
+            //a1[0] = h * PI * a1[0] / (2.0 * N);
             for (var i = 1; i < a1.Length; i++)
             {
-                a1[i] = PI * (a1[i] + f1[0]) / (sqrt2 * N);
+                a1[i] =h* PI * (a1[i] + f1[0]) / (sqrt2 * N);
             }
             return a1.Select(x => x.Real).ToArray();
         }
@@ -279,10 +280,14 @@ namespace FastCoefficientsForDiffEq
         private static void Main(string[] args)
         {
             var N = 8;
-            var r = new Random();
-            var p = Enumerable.Range(0, N).Select(x => r.NextDouble() * 100 - 50).ToArray();
-            
-            var eps = 0.01;
+            //var r = new Random();
+            //var p = Enumerable.Range(0, N).Select(x => r.NextDouble() * 100 - 50).ToArray();
+            var p = new double[N];
+            for (int i = 0; i < N; i++)
+            {
+                p[i] = 1;
+            }
+            var eps = 10;
             var y0 = 1;
             var h = 0.1;
             var cks = Cks(p, h, y0);
@@ -290,7 +295,7 @@ namespace FastCoefficientsForDiffEq
             do
             {
                 k = cks;
-                cks = Cks(cks, 0.1, 1);
+                cks = Cks(cks, h, y0);         
                 Console.WriteLine(Diff(cks, k));
             } while (Diff(cks,k)>=eps);
 
@@ -302,23 +307,22 @@ namespace FastCoefficientsForDiffEq
 //            }
 
             var ys = CalculateSolutionFromCoefficients(cks, y0);
-            
+
             Console.WriteLine("Ys");
 
             foreach (var y in ys)
             {
                 Console.WriteLine(y);
             }
-            
+
             Console.WriteLine("Real solution:");
-            var s = _tau.Select(x => -Cos(PI * x) + 2).ToArray();
-            
+            var s = _tau.Select(x => Exp(h*Sin(PI*x)* h * Sin(PI * x)/2)).ToArray();
+
             foreach (var y in s)
             {
                 Console.WriteLine(y);
             }
-            
-            
+     
             Console.ReadLine();
         }
         
